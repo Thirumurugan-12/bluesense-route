@@ -1,10 +1,13 @@
-Here is a detailed README for your project "bluesense-route":
+
 
 ---
 
 # bluesense-route
 
 bluesense-route is a Python project designed to optimize routes and plan delivery waypoints using Streamlit and Azure Maps.
+
+![Screenshot (1964)](https://github.com/user-attachments/assets/87420ca5-311c-417d-b524-04c52ba2513f)
+![Screenshot (1965)](https://github.com/user-attachments/assets/3b544f5c-31ed-47ca-93b3-cdc9cea2b57f)
 
 ## Features
 
