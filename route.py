@@ -111,14 +111,42 @@ def display_weather_data(weather_data):
     # Display the DataFrame as a table
     st.table(weather_df)
 
-def get_location_from_coordinates(query):
+def get_location_from_coordinates(query,reverse=0):
     url = f'https://atlas.microsoft.com/search/address/reverse/json?api-version=1.0&subscription-key=97SjjN6bTvmt4Hgg4O8P5cRDWfHkToj7HD4nX6xhDsV8sJkVicajJQQJ99ALAC8vTInPDDZUAAAgAZMP2ojl&language=en-US&query={query}'
     response = requests.get(url)
     print(query)
     print(response.json())
+    if (reverse):
+        return response.json()['addresses'][0]['address']['municipality']
     return response.json()['addresses'][0]['address']['freeformAddress']
 
 def calculate_emissions(from_location, to_location, vehicle_options):
+
+    st.subheader("AQI Information")
+    # Define the city and language for the AQI feed
+    city = get_location_from_coordinates(from_location,1)
+    lang = "en"
+
+    aqi_js = """
+
+        <script  type="text/javascript"  charset="utf-8">  
+    (function  (w,  d,  t,  f)  {  
+        w[f]  =  w[f]  ||  function  (c,  k,  n)  {  
+            s  =  w[f],  k  =  s['k']  =  (s['k']  ||  (k  ?  ('&k='  +  k)  :  ''));  s['c']  =  
+                c  =  (c  instanceof  Array)  ?  c  :  [c];  s['n']  =  n  =  n  ||  0;  L  =  d.createElement(t),  e  =  d.getElementsByTagName(t)[0];  
+            L.async  =  1;  L.src  =  '//feed.aqicn.org/feed/'  +  (c[n].city)  +  '/'  +  (c[n].lang  ||  '')  +  '/feed.v1.js?n='  +  n  +  k;  
+            e.parentNode.insertBefore(L,  e);  
+        };  
+    })(window,  document,  'script',  '_aqiFeed');    
+    </script>
+
+        <span id="city-aqi-container"></span>  
+        <script type="text/javascript" charset="utf-8">  
+            _aqiFeed({ display : "%details", container: "city-aqi-container", city: """ + f' "{city}" ' + "});  </script>"
+    # Embed the JavaScript code in an HTML component
+    print(aqi_js)
+    st.components.v1.html(aqi_js, height=200)
+
     url = 'https://api.climatiq.io/freight/v2/intermodal'
     headers = {
         'Authorization': 'Bearer H87YYQR7PN22KAJ8PZ9J8Y8HK8',
@@ -195,7 +223,7 @@ def route():
         from_coord = geocode_query(from_location)
         to_coord = geocode_query(to_location)
         
-        emissions = calculate_emissions(from_location, to_location, vehicle_options)
+        
         # st.write("Emissions Calculation Result:")
         # st.json(emissions)
         
@@ -229,5 +257,6 @@ def route():
             folium_static(folium_map)
 
             fetch_weather_data(from_location)
+            emissions = calculate_emissions(from_location, to_location, vehicle_options)
         else:
             st.error("Failed to geocode locations.")
