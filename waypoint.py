@@ -58,13 +58,15 @@ def display_weather_data(weather_data):
     # Display the DataFrame as a table
     st.table(weather_df)
 
-def get_location_from_coordinates(query):
+def get_location_from_coordinates(query,reverse=0):
     url = f'https://atlas.microsoft.com/search/address/reverse/json?api-version=1.0&subscription-key=97SjjN6bTvmt4Hgg4O8P5cRDWfHkToj7HD4nX6xhDsV8sJkVicajJQQJ99ALAC8vTInPDDZUAAAgAZMP2ojl&language=en-US&query={query}'
     response = requests.get(url)
     print('---------------------')
     print(url)
     if response.status_code == 200:
         print(response.json())
+        if (reverse==1):
+            return response.json()['addresses'][0]['address']['municipality']
         return response.json()['addresses'][0]['address']['freeformAddress']
     else:
         st.error("Failed to retrieve location data")
@@ -159,7 +161,31 @@ def calculate_emissions(locations, vehicle_options):
 
 def calculate_route(waypoints,optimized=False):
     
-    
+    st.subheader("AQI Information")
+    # Define the city and language for the AQI feed
+    city = get_location_from_coordinates(",".join(map(str, waypoints[0])),1)
+    lang = "en"
+
+    aqi_js = """
+
+        <script  type="text/javascript"  charset="utf-8">  
+    (function  (w,  d,  t,  f)  {  
+        w[f]  =  w[f]  ||  function  (c,  k,  n)  {  
+            s  =  w[f],  k  =  s['k']  =  (s['k']  ||  (k  ?  ('&k='  +  k)  :  ''));  s['c']  =  
+                c  =  (c  instanceof  Array)  ?  c  :  [c];  s['n']  =  n  =  n  ||  0;  L  =  d.createElement(t),  e  =  d.getElementsByTagName(t)[0];  
+            L.async  =  1;  L.src  =  '//feed.aqicn.org/feed/'  +  (c[n].city)  +  '/'  +  (c[n].lang  ||  '')  +  '/feed.v1.js?n='  +  n  +  k;  
+            e.parentNode.insertBefore(L,  e);  
+        };  
+    })(window,  document,  'script',  '_aqiFeed');    
+    </script>
+
+        <span id="city-aqi-container"></span>  
+        <script type="text/javascript" charset="utf-8">  
+            _aqiFeed({ display : "%details", container: "city-aqi-container", city: """ + f' "{city}" ' + "});  </script>"
+    # Embed the JavaScript code in an HTML component
+    print(aqi_js)
+    st.components.v1.html(aqi_js, height=200)
+
     if all(-90 <= wp[0] <= 90 and -180 <= wp[1] <= 180 for wp in waypoints):
         # Format: (latitude, longitude)
         waypoint_query = ":".join([f"{wp[0]},{wp[1]}" for wp in waypoints])
@@ -168,7 +194,8 @@ def calculate_route(waypoints,optimized=False):
         waypoint_query = ":".join([f"{wp[1]},{wp[0]}" for wp in waypoints])
     # print(waypoint_query)
     rest_routing_request_url = f'https://atlas.microsoft.com/route/directions/json?subscription-key=97SjjN6bTvmt4Hgg4O8P5cRDWfHkToj7HD4nX6xhDsV8sJkVicajJQQJ99ALAC8vTInPDDZUAAAgAZMP2ojl&api-version=1.0&query={waypoint_query}&routeRepresentation=polyline&travelMode=car&view=Auto'
-    
+    print(rest_routing_request_url)
+    print("ressss")
     if optimized:
         rest_routing_request_url += '&computeBestOrder=true'
     
@@ -217,6 +244,8 @@ def add_route_to_map(route, optimized, result , waypoints):
     output = f"Distance: {round(route['summary']['lengthInMeters'] / 1000, 2)} km\n"
     travel = f"Travel Time: {round(route['summary']['travelTimeInSeconds'] / 3600, 2)} hours\n"
     way = ''
+    print("result------------")
+    print(result)
     calculate_emissions(waypoints, vehicle_options={'vehicleWeight': 1000})
     if optimized:
         pin_order = []
@@ -251,7 +280,6 @@ def waypoint():
     [13.0355, 80.2331],  # T Nagar, Chennai
     [13.0025, 80.2571],  # Adyar, Chennai
     [12.9612, 80.2199],  # Velachery, Chennai
-    
     [13.0827, 80.2090],  # Anna Nagar, Chennai
     [12.9391, 80.1241],  # Tambaram, Chennai
     [13.0105, 80.1728],  # Porur, Chennai
@@ -262,7 +290,9 @@ def waypoint():
 
 
     if st.button("Calculate Waypoint Optimized Route",key='calculate'):
-        calculate_route(waypoints , optimized=True)
+        with st.spinner("Calculating Route..."):
+            calculate_route(waypoints, optimized=True)
+        # calculate_route(waypoints , optimized=True)
     if st.button("Calculate Route",key='calculate_route'):
         calculate_route(waypoints=waypoints)
         
