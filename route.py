@@ -111,6 +111,70 @@ def display_weather_data(weather_data):
     # Display the DataFrame as a table
     st.table(weather_df)
 
+def get_location_from_coordinates(query):
+    url = f'https://atlas.microsoft.com/search/address/reverse/json?api-version=1.0&subscription-key=97SjjN6bTvmt4Hgg4O8P5cRDWfHkToj7HD4nX6xhDsV8sJkVicajJQQJ99ALAC8vTInPDDZUAAAgAZMP2ojl&language=en-US&query={query}'
+    response = requests.get(url)
+    print(query)
+    print(response.json())
+    return response.json()['addresses'][0]['address']['freeformAddress']
+
+def calculate_emissions(from_location, to_location, vehicle_options):
+    url = 'https://api.climatiq.io/freight/v2/intermodal'
+    headers = {
+        'Authorization': 'Bearer H87YYQR7PN22KAJ8PZ9J8Y8HK8',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        "route": [
+            { "location": { "query": get_location_from_coordinates(from_location) } },
+            {
+                "transport_mode": "road",
+                "leg_details": {
+                    "rest_of_world": {
+                        "vehicle_type": "van",
+                        "vehicle_weight": "lte_3.5t",
+                        "fuel_source": "petrol"
+                    },
+                    "india": {
+                        "vehicle_type": "moving"
+                    }
+                }
+            },
+            { "location": { "query": get_location_from_coordinates(to_location) } }
+        ],
+        "cargo": {
+            "weight": 10,
+            "weight_unit": "kg"
+        }
+    }
+
+    response = requests.post(url, headers=headers, data=json.dumps(data))
+    emission_data = response.json()
+
+    total_co2e = emission_data['co2e']
+    vehicle_operation_co2e = emission_data['vehicle_operation_co2e']
+    vehicle_energy_provision_co2e = emission_data['vehicle_energy_provision_co2e']
+    distance_km = emission_data['distance_km']
+    co2e_unit = emission_data['co2e_unit']
+    
+    st.write(f"### Emission Details")
+    st.write(f"**Total CO2e:** {total_co2e} {co2e_unit}")
+    st.write(f"**Vehicle Operation CO2e:** {vehicle_operation_co2e} {co2e_unit}")
+    st.write(f"**Vehicle Energy Provision CO2e:** {vehicle_energy_provision_co2e} {co2e_unit}")
+    st.write(f"**Distance:** {distance_km} km")
+
+    for route in emission_data['route']:
+        if route['type'] == 'leg':
+            st.write(f"#### Leg Details")
+            st.write(f"**Leg CO2e:** {route['co2e']} {route['co2e_unit']}")
+            st.write(f"**Transport Mode:** {route['transport_mode']}")
+            st.write(f"**Distance:** {route['distance_km']} km")
+            st.write(f"**Vehicle Operation CO2e:** {route['vehicle_operation_co2e']} {route['co2e_unit']}")
+            st.write(f"**Vehicle Energy Provision CO2e:** {route['vehicle_energy_provision_co2e']} {route['co2e_unit']}")
+
+    
+    return response.json()
+
 def route():
     # Streamlit app
     st.title("Route Optimization")
@@ -130,7 +194,11 @@ def route():
     if st.button("Calculate Directions"):
         from_coord = geocode_query(from_location)
         to_coord = geocode_query(to_location)
-
+        
+        emissions = calculate_emissions(from_location, to_location, vehicle_options)
+        # st.write("Emissions Calculation Result:")
+        # st.json(emissions)
+        
         if from_coord and to_coord:
             car_route, truck_route = calculate_directions(from_coord, to_coord, vehicle_options)
 
